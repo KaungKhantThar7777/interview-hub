@@ -4,50 +4,80 @@ import { Server } from "socket.io";
 type CustomResponse = NextApiResponse & { socket: { server: any } };
 
 const SocketHandler = (req: NextApiRequest, res: CustomResponse) => {
-  console.log("Called Socket API");
-
   if (res.socket?.server?.io) {
-    console.log("socket already running");
-  } else {
-    const io = new Server(res.socket?.server);
-
-    console.log({ res });
-
-    res.socket!.server!.io = io;
-
-    io.on("connection", (socket) => {
-      console.log("server is connected");
-
-      socket?.on("join-room", (roomId, userId) => {
-        console.log(`a new user ${userId} joined room - ${roomId}`);
-        socket.join(roomId);
-        socket.broadcast.to(roomId).emit("user-connected", userId);
-      });
-
-      socket?.on("user-toggle-video", (userId, roomId) => {
-        console.log("user toggle video stream");
-
-        socket.join(roomId);
-        socket.broadcast.to(roomId).emit("user-toggle-video", userId);
-      });
-
-      socket?.on("user-toggle-audio", (userId, roomId) => {
-        console.log("user toggle audio stream");
-
-        socket.join(roomId);
-        socket.broadcast.to(roomId).emit("user-toggle-audio", userId);
-      });
-
-      socket?.on("user-leave", (userId, roomId) => {
-        console.log("user toggle audio stream");
-
-        socket.join(roomId);
-        socket.broadcast.to(roomId).emit("user-leave", userId);
-      });
-    });
+    console.log("Socket already running");
+    return res.end();
   }
 
-  res.end(); // End the response
+  const io = new Server(res.socket?.server, {
+    // Add CORS and other configurations if needed
+    path: "/api/socket",
+  });
+  res.socket!.server!.io = io;
+
+  const rooms = new Map(); // Track room participants
+
+  io.on("connection", (socket) => {
+    console.log("New client connected");
+
+    socket.on("join-room", (roomId, userId) => {
+      // Join the room
+      socket.join(roomId);
+
+      // Track room participants
+      if (!rooms.has(roomId)) {
+        rooms.set(roomId, new Set());
+      }
+      rooms.get(roomId).add(userId);
+
+      console.log(`User ${userId} joined room ${roomId}`);
+      console.log(
+        `Room ${roomId} participants:`,
+        Array.from(rooms.get(roomId))
+      );
+
+      // Notify others in the room
+      socket.to(roomId).emit("user-connected", userId);
+    });
+
+    socket.on("user-toggle-video", (userId, roomId) => {
+      if (rooms.get(roomId)?.has(userId)) {
+        console.log(`User ${userId} toggled video in room ${roomId}`);
+        // Broadcast to everyone in the room including sender
+        io.in(roomId).emit("user-toggle-video", userId);
+      }
+    });
+
+    socket.on("user-toggle-audio", (userId, roomId) => {
+      if (rooms.get(roomId)?.has(userId)) {
+        console.log(`User ${userId} toggled audio in room ${roomId}`);
+        // Broadcast to everyone in the room including sender
+        io.in(roomId).emit("user-toggle-audio", userId);
+      }
+    });
+
+    socket.on("user-leave", (userId, roomId) => {
+      if (rooms.get(roomId)?.has(userId)) {
+        console.log(`User ${userId} left room ${roomId}`);
+        // Remove user from room tracking
+        rooms.get(roomId).delete(userId);
+        if (rooms.get(roomId).size === 0) {
+          rooms.delete(roomId);
+        }
+        // Notify others
+        io.in(roomId).emit("user-leave", userId);
+        socket.leave(roomId);
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Client disconnected");
+      // Clean up rooms if needed
+    });
+  });
+
+  console.log("Socket server initialized");
+  res.end();
 };
 
 export default SocketHandler;

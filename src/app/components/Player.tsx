@@ -36,20 +36,20 @@ const Player = (props: Props) => {
         )}
 
         <div className="absolute text-white bottom-3 left-3 p-2 rounded-full bg-neutral-700/40 flex gap-3 backdrop-blur-md">
-          {isActive ? (
-            muted ? (
-              <MicOff className="z-10 text-neutral-400" />
-            ) : (
-              <Mic className="z-2" />
-            )
-          ) : undefined}
-          {isActive ? (
-            playing ? (
-              <Video className="z-10" />
-            ) : (
-              <VideoOff className="z-2 text-neutral-400" />
-            )
-          ) : undefined}
+          {isActive && (
+            <>
+              {muted ? (
+                <MicOff className="z-10 text-neutral-400" />
+              ) : (
+                <Mic className="z-2" />
+              )}
+              {playing ? (
+                <Video className="z-10" />
+              ) : (
+                <VideoOff className="z-2 text-neutral-400" />
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

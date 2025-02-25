@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cloneDeep } from "lodash";
 
 import { useSocket } from "@/context/Socket";
@@ -16,53 +16,91 @@ const usePlayer = (myId: string, roomId: string, peer: any) => {
 
   const [players, setPlayers] = useState<Record<string, Player>>({});
 
-  const highlightedPlayer: Record<string, Player> = {};
-  const nonHighlightedPlayer = players[myId];
+  console.log("usePlayer players:", players);
 
-  Object.keys(players).forEach((key) => {
-    if (key !== myId) {
-      highlightedPlayer[key] = players[key];
-    }
-  });
+  const playersCopy = cloneDeep(players);
 
-  const leaveRoom = () => {
-    socket?.emit("user-leave", myId, roomId);
-    peer?.disconnect();
-    router.push("/");
-  };
+  const nonHighlightedPlayer = playersCopy[myId];
+
+  delete playersCopy[myId];
+
+  const highlightedPlayer = playersCopy;
 
   const toggleAudio = () => {
-    console.log("I toggled my audio");
+    if (!socket || !myId) return;
+
+    // Update local state first
     setPlayers((prev) => {
       const copy = cloneDeep(prev);
       if (copy[myId]) {
         copy[myId].muted = !copy[myId].muted;
       }
-      return { ...copy };
+      return copy;
     });
 
-    if (socket) {
-      socket.emit("user-toggle-audio", myId, roomId);
-    } else {
-      console.warn("Socket is not connected"); // Warn if socket is not available
-    }
+    // Emit event
+    socket.emit("user-toggle-audio", myId, roomId);
   };
 
   const toggleVideo = () => {
+    if (!socket || !myId) return;
+
+    // Update local state first
     setPlayers((prev) => {
       const copy = cloneDeep(prev);
       if (copy[myId]) {
-        copy[myId].playing = !copy[myId].playing; // Toggle the playing status
+        copy[myId].playing = !copy[myId].playing;
       }
-      return { ...copy }; // Return the updated state
+      return copy;
     });
 
-    if (socket) {
-      socket.emit("user-toggle-video", myId, roomId);
-    } else {
-      console.warn("Socket is not connected"); // Warn if socket is not available
-    }
+    // Emit event
+    socket.emit("user-toggle-video", myId, roomId);
   };
+
+  // Listen for remote toggle events
+  useEffect(() => {
+    if (!socket || !setPlayers) return;
+
+    const handleRemoteToggleAudio = (userId: string) => {
+      console.log("Remote audio toggle for:", userId);
+      setPlayers((prev) => {
+        const copy = cloneDeep(prev);
+        if (copy[userId]) {
+          copy[userId].muted = !copy[userId].muted;
+        }
+        return copy;
+      });
+    };
+
+    const handleRemoteToggleVideo = (userId: string) => {
+      console.log("Remote video toggle for:", userId);
+      setPlayers((prev) => {
+        const copy = cloneDeep(prev);
+        if (copy[userId]) {
+          copy[userId].playing = !copy[userId].playing;
+        }
+        return copy;
+      });
+    };
+
+    socket.on("user-toggle-audio", handleRemoteToggleAudio);
+    socket.on("user-toggle-video", handleRemoteToggleVideo);
+
+    return () => {
+      socket.off("user-toggle-audio", handleRemoteToggleAudio);
+      socket.off("user-toggle-video", handleRemoteToggleVideo);
+    };
+  }, [socket, setPlayers]);
+
+  const leaveRoom = () => {
+    if (socket) {
+      socket.emit("user-leave", myId, roomId);
+    }
+    peer?.disconnect();
+    router.push("/");
+  };
+
   return {
     players,
     setPlayers,
