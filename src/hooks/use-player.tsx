@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { cloneDeep } from "lodash";
-
 import { useSocket } from "@/context/Socket";
 import { useRouter } from "next/navigation";
+import { Peer } from "peerjs";
 
 type Player = {
   url: MediaStream;
@@ -10,7 +10,7 @@ type Player = {
   playing: boolean;
 };
 
-const usePlayer = (myId: string, roomId: string, peer: any) => {
+const usePlayer = (myId: string, roomId: string, peer: Peer | null) => {
   const socket = useSocket()?.socket;
   const router = useRouter();
 

@@ -7,10 +7,9 @@ import { useSocket } from "@/context/Socket";
 import { useMediaStream } from "@/hooks/use-media-stream";
 import { usePeer } from "@/hooks/use-peer";
 import usePlayer from "@/hooks/use-player";
-import { cloneDeep } from "lodash";
 import { useParams } from "next/navigation";
 import { MediaConnection } from "peerjs";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 const Room = () => {
   const socket = useSocket()?.socket;
@@ -21,6 +20,7 @@ const Room = () => {
   const { peer, myId } = usePeer(roomId);
   const { stream } = useMediaStream();
   const [users, setUsers] = useState<Record<string, MediaConnection>>({});
+  console.log({ users });
   const {
     players,
     setPlayers,
@@ -31,7 +31,7 @@ const Room = () => {
     nonHighlightedPlayer,
   } = usePlayer(myId, roomId, peer);
 
-  console.log({ highlightedPlayer, nonHighlightedPlayer });
+  console.log({ highlightedPlayer, nonHighlightedPlayer, users, players });
 
   useEffect(() => {
     if (!socket || !peer || !stream || !roomId || !myId) return;

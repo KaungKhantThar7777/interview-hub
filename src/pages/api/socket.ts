@@ -1,7 +1,14 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { Server } from "socket.io";
+import { Server as HttpServer } from "http";
+import { Server as IOServer } from "socket.io";
 
-type CustomResponse = NextApiResponse & { socket: { server: any } };
+type CustomResponse = NextApiResponse & {
+  socket: {
+    server: HttpServer & {
+      io?: IOServer;
+    };
+  };
+};
 
 const SocketHandler = (req: NextApiRequest, res: CustomResponse) => {
   if (res.socket?.server?.io) {
@@ -9,7 +16,7 @@ const SocketHandler = (req: NextApiRequest, res: CustomResponse) => {
     return res.end();
   }
 
-  const io = new Server(res.socket?.server, {
+  const io = new IOServer(res.socket?.server, {
     // Add CORS and other configurations if needed
     path: "/api/socket",
   });
